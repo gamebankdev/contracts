@@ -1,0 +1,13 @@
+[{
+	"type": "function",
+	"name": "buy",
+	"args": ["string", "uint64"]
+}, {
+	"type": "function",
+	"name": "draw",
+	"args": []
+}, {
+	"type": "function",
+	"name": "testcommand",
+	"args": ["string", "string"]
+}]
