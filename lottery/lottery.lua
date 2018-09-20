@@ -34,6 +34,9 @@ function buy(lotteryNumber,lotteryCount)
 	if(string.len(lotteryNumber) ~= lottery_digit_count)then
 		error("lottery number must be a "..lottery_digit_count.." digit number")
 	end
+	if(lotteryCount < 1)then
+		error("lotteryCount error")
+	end
 	-- check caller's balance
 	-- 
 	local all_data = contract.get_data()
@@ -42,7 +45,7 @@ function buy(lotteryNumber,lotteryCount)
 	end
 	all_data.data[#all_data.data+1] = {contract.get_caller(), lotteryNumber, lotteryCount}
 	all_data.prize_pool = all_data.prize_pool + price*lotteryCount
-	contract.transfer(contract.get_caller(), contract.get_name(), price)
+	contract.transfer(contract.get_caller(), contract.get_name(), price*lotteryCount)
 	contract.emit("buy", contract.get_caller(), lotteryNumber, lotteryCount)
 	print("all_data.prize_pool:"..all_data.prize_pool)
 end
