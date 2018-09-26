@@ -178,7 +178,7 @@ local function check_zhu3(lottery_data, prize_numbers )
 			match_digit_count = match_digit_count + 1
 			table.insert(match_digits, digits_table[1][i])
 			match_number = digits_table[1][i]..match_number
-			for j=2,#digits_table[1] do
+			for j=i+1,#digits_table[1] do
 				if(digits_table[1][j] == digit_array[1] or digits_table[1][j] == digit_array[2])then
 					if(digits_table[1][j] ~= match_digits[1] )then
 						match_digit_count = match_digit_count + 1
@@ -498,22 +498,9 @@ function draw()
 end
 
 
-
-local function test_buy()
-	local all_data = contract.get_data()
-	all_data.is_active = true
-	all_data.draw_block_num = 10000000
-	--buy(1,"[[0,1],[8,3],[5,6],[2,3],[1,4]]")
-	--buy(2,"[[0,1],[8,3],[5,6],[2,3],[1,4]]")
-	--buy(4,"[[5,6]]")
-	--buy(5,"[[0,1,3,5,8]]")
-	--buy(7,"[[0,1,3,5,8]]")
-	buy(9,"[[2],[4]]")
-	all_data.draw_block_num = 100
-	draw()
-end
-
--- 
+--[[----------------------------------------------------------------------------------------------
+											T E S T
+--]]----------------------------------------------------------------------------------------------
 local function test_lottery_count_zhixuan5()
 	local item_id = 1
 	local item = items[item_id]
@@ -594,6 +581,42 @@ local function test_lottery_count_zhuxuan2()
 	end
 end
 
+local function test_buy_tongxuan5()
+	local all_data = contract.get_data()
+	all_data.is_active = true
+	all_data.draw_block_num = 10000000
+	buy(2,"[[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9]]")
+	all_data.draw_block_num = 100
+	draw()
+end
+
+local function test_buy_zhu3()
+	local all_data = contract.get_data()
+	all_data.is_active = true
+	all_data.draw_block_num = 10000000
+	buy(4,"[[0,1,2,3,4,5,6,7,8,9]]")
+	all_data.draw_block_num = 100
+	draw()
+end
+
+local function test_buy_zhu6()
+	local all_data = contract.get_data()
+	all_data.is_active = true
+	all_data.draw_block_num = 10000000
+	buy(5,"[[0,1,2,3,4,5,6,7,8,9]]")
+	all_data.draw_block_num = 100
+	draw()
+end
+
+local function test_buy_zhu2()
+	local all_data = contract.get_data()
+	all_data.is_active = true
+	all_data.draw_block_num = 10000000
+	buy(5,"[[0,1,2,3,4,5,6,7,8,9]]")
+	all_data.draw_block_num = 100
+	draw()
+end
+
 -- only for test
 function testcommand(cmd, arg)
 	print("testcommand cmd="..cmd.." arg="..arg)
@@ -601,6 +624,10 @@ function testcommand(cmd, arg)
 		--test_lottery_count_zhixuan5()
 		--test_lottery_count_zhuxuan3()
 		--test_lottery_count_zhuxuan6()
-		test_lottery_count_zhuxuan2()
+		--test_lottery_count_zhuxuan2()
+		--test_buy_tongxuan5()
+		--test_buy_zhu3()
+		--test_buy_zhu6()
+		--test_buy_zhu2()
 	end
 end
