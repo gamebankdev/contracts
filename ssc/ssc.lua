@@ -1,7 +1,8 @@
 
 local init_options =
 {
-	price = 2000, -- 2 GB
+	price = 2000, -- 2 GB,
+	min_contract_balance = 100000*2,
 	draw_block_num_period = 20*10,  -- 10 minutes
 	stop_buy_time_before_draw = 10, -- 30 seconds before draw
 	lottery_digit_count = 5
@@ -14,6 +15,8 @@ local enum_daxiaodanshuang =
 	dan = 3,
 	shuang = 4
 }
+
+local items = {}
 
 -- 阶乘
 local function factorial(n)
@@ -64,6 +67,8 @@ end
 
 -- 检查前几位或后几位数字是否相同
 local function check_same_digit(lottery_data, prize_numbers, check_digit_count, is_front)
+	local buyer = lottery_data[1]
+	local item_id = lottery_data[2]
 	local digits_table = lottery_data[3]
 	local begin_idx = is_front and (#digits_table-check_digit_count+1) or 1
 	local match_digit_count = 0
@@ -78,6 +83,8 @@ local function check_same_digit(lottery_data, prize_numbers, check_digit_count, 
 		end
 	end
 	if(match_digit_count == check_digit_count)then
+		contract.transfer(contract.get_name(), buyer, items[check_digit_count].prize)
+		contract.emit("win", buyer, item_id, items[check_digit_count].prize, check_digit_count )
 		print("win check_same_digit:"..lottery_data[1].." "..match_number.."("..(is_front and "front)" or "back)"))
 	end
 end
@@ -100,6 +107,8 @@ local function check_zhixuan(lottery_data, prize_numbers )
 		end
 	end
 	if(match_digit_count == group_count)then
+		contract.transfer(contract.get_name(), buyer, items[item_id].prize)
+		contract.emit("win", buyer, item_id, items[item_id].prize )
 		print("win zhixuan:"..buyer.." "..match_number)
 	end
 end
@@ -122,6 +131,8 @@ local function check_tongxuan5(lottery_data, prize_numbers )
 		end
 	end
 	if(match_digit_count == group_count)then
+		contract.transfer(contract.get_name(), buyer, items[item_id].prize)
+		contract.emit("win", buyer, item_id, items[item_id].prize )
 		print("win tongxuan5:"..buyer.." "..match_number)
 	end
 	check_same_digit(lottery_data, prize_numbers, 3, true)
@@ -142,6 +153,8 @@ local function check_tongxuan5(lottery_data, prize_numbers )
 		end
 	end
 	if(match_digit_count == 4)then
+		contract.transfer(contract.get_name(), buyer, items[item_id].extra_prize[4])
+		contract.emit("win", buyer, item_id, items[item_id].extra_prize[4])
 		print("win tongxuan4:"..buyer.." "..match_number)
 	end
 end
@@ -188,6 +201,8 @@ local function check_zhu3(lottery_data, prize_numbers )
 				end
 			end
 			if(match_digit_count == 2)then
+				contract.transfer(contract.get_name(), buyer, items[item_id].prize)
+				contract.emit("win", buyer, item_id, items[item_id].prize )
 				print("win zhu3:"..buyer.." "..match_number)
 			end
 		end
@@ -231,6 +246,8 @@ local function check_zhu6(lottery_data, prize_numbers )
 					end
 				end
 				if(match_digit_count == 3)then
+					contract.transfer(contract.get_name(), buyer, items[item_id].prize)
+					contract.emit("win", buyer, item_id, items[item_id].prize )
 					print("win zhu6:"..buyer.." "..match_number)
 					return
 				end
@@ -272,6 +289,8 @@ local function check_zhu2(lottery_data, prize_numbers )
 				end
 			end
 			if(match_digit_count == 2)then
+				contract.transfer(contract.get_name(), buyer, items[item_id].prize)
+				contract.emit("win", buyer, item_id, items[item_id].prize )
 				print("win zhu2:"..buyer.." "..digits_table[1][i]..digits_table[1][j])
 				return
 			end
@@ -310,7 +329,7 @@ local function check_daxiaodanshuang(lottery_data, prize_numbers )
 	end
 end
 
-local items =
+items =
 {
 	-- [1]五星直选
 	{
@@ -318,7 +337,8 @@ local items =
 		digit_count_min = 1,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhixuan,
-		check_prize = check_zhixuan
+		check_prize = check_zhixuan,
+		prize = 100000
 	},
 	-- [2]五星通选
 	{
@@ -326,7 +346,9 @@ local items =
 		digit_count_min = 1,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhixuan,
-		check_prize = check_tongxuan5
+		check_prize = check_tongxuan5,
+		prize = 20440,
+		extra_prize = {0,20,220,40}
 	},
 	-- [3]三星直选
 	{
@@ -334,7 +356,8 @@ local items =
 		digit_count_min = 1,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhixuan,
-		check_prize = check_zhixuan
+		check_prize = check_zhixuan,
+		prize = 1000
 	},
 	-- [4]三星组三
 	{
@@ -342,7 +365,8 @@ local items =
 		digit_count_min = 2,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhu3,
-		check_prize = check_zhu3
+		check_prize = check_zhu3,
+		prize = 320
 	},
 	-- [5]三星组六
 	{
@@ -350,7 +374,8 @@ local items =
 		digit_count_min = 3,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhu6,
-		check_prize = check_zhu6
+		check_prize = check_zhu6,
+		prize = 160
 	},
 	-- [6]二星直选
 	{
@@ -358,7 +383,8 @@ local items =
 		digit_count_min = 1,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhixuan,
-		check_prize = check_zhixuan
+		check_prize = check_zhixuan,
+		prize = 100
 	},
 	-- [7]二星组选
 	{
@@ -366,7 +392,8 @@ local items =
 		digit_count_min = 2,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhu2,
-		check_prize = check_zhu2
+		check_prize = check_zhu2,
+		prize = 50
 	},
 	-- [8]一星
 	{
@@ -374,7 +401,8 @@ local items =
 		digit_count_min = 1,
 		digit_count_max = 10,
 		get_lottery_count = get_lottery_count_zhixuan,
-		check_prize = check_zhixuan
+		check_prize = check_zhixuan,
+		prize = 10
 	},
 	-- [9]大小单双
 	{
@@ -382,7 +410,8 @@ local items =
 		digit_count_min = 1,
 		digit_count_max = 1,
 		get_lottery_count = get_lottery_count_daxiaodanshuang,
-		check_prize = check_daxiaodanshuang
+		check_prize = check_daxiaodanshuang,
+		prize = 4
 	}
 }
 
@@ -628,6 +657,6 @@ function testcommand(cmd, arg)
 		--test_buy_tongxuan5()
 		--test_buy_zhu3()
 		--test_buy_zhu6()
-		--test_buy_zhu2()
+		test_buy_zhu2()
 	end
 end
