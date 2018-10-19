@@ -1,0 +1,57 @@
+[{
+	"type": "function",
+	"name": "add_table_creator",
+	"args": ["string"]
+}, {
+	"type": "function",
+	"name": "remove_table_creator",
+	"args": ["string"]
+}, {
+	"type": "function",
+	"name": "pay_deposit",
+	"args": ["uint64"]
+}, {
+	"type": "function",
+	"name": "table_create",
+	"args": ["uint64", "string", "string"]
+}, {
+	"type": "function",
+	"name": "table_join",
+	"args": ["uint64"]
+}, {
+	"type": "function",
+	"name": "shuffle_deck",
+	"args": ["uint64", "string"]
+}, {
+	"type": "function",
+	"name": "encrypt_cards",
+	"args": ["uint64", "string", "string"]
+}, {
+	"type": "function",
+	"name": "deal",
+	"args": ["uint64"]
+}, {
+	"type": "function",
+	"name": "set_faceup",
+	"args": ["uint64", "uint64", "string"]
+}, {
+	"type": "function",
+	"name": "bet_continue",
+	"args": ["uint64", "uint64"]
+}, {
+	"type": "function",
+	"name": "bet_giveup",
+	"args": ["uint64", "string"]
+}, {
+	"type": "function",
+	"name": "bet_open",
+	"args": ["uint64"]
+}, {
+	"type": "function",
+	"name": "set_open_result",
+	"args": ["uint64", "uint64", "uint64", "uint64", "string"]
+}, {
+	"type": "function",
+	"name": "testcommand",
+	"args": ["string", "string"]
+}]

@@ -111,7 +111,7 @@ end
 ]]--
 function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	--table_id = math.floor(table_id)
-	if(deposit_fee < 1)then
+	if(table_id < 1)then
 		error("error table_id value")
 	end
 	local all_data = contract.get_data()
@@ -528,7 +528,7 @@ end
   ]
   该接口必须由table.creator调用
 ]]--
-function set_open_result(open_index, another_index, winner_index, prikeys_jsonstr)
+function set_open_result(table_id, open_index, another_index, winner_index, prikeys_jsonstr)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
@@ -569,10 +569,19 @@ function set_open_result(open_index, another_index, winner_index, prikeys_jsonst
 			-- pubkey = table_data.players[from_index].pubkeys[card_index]
 			-- pubkey prikey3[j] keypair?
 			table_data.players[hand_index].hand_cards[j].prikeys[from_index] = prikey3[j]
+		end
 	end
 	contract.emit("set_open_result", contract.get_caller(), table_id, open_index, another_index, winner_index, prikeys_jsonstr )
 	set_winner(all_data, table_data, table_id, winner_index)
 end
+
+-- only for test
+function testcommand(cmd, arg)
+	print("testcommand cmd="..cmd.." arg="..arg)
+	if(cmd == "test")then
+	end
+end
+
 
 --[[
 	todo:各种异常情况的处理
