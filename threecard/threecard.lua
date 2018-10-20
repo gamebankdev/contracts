@@ -1,13 +1,5 @@
 
--- 配置
-local Options =
-{
-	TableConfigs =
-	{
-		[1] = {deposit_fee=1000 }
-	}
-}
-
+-- 牌桌状态
 local EState = 
 {
 	Join = 0,			-- 加入牌桌
@@ -31,7 +23,7 @@ function on_deploy()
 	all_data.table_creators = {}
 	--all_data.players_in_table = {} K=player V=table_id
 	print("on_deploy")
-	contract.emit("deploy" )
+	contract.emit("deploy", chain.head_block_num() )
 end
 
 function add_table_creator(table_creator)
@@ -72,6 +64,7 @@ function pay_deposit(deposit_fee)
 	local back_value = 0
 	if(old_deposit_fee == nil)then
 		pay_value = deposit_fee
+		old_deposit_fee = 0
 	else
 		if(deposit_fee == old_deposit_fee)then
 			error("error deposit_fee value")
@@ -97,9 +90,9 @@ end
 	table_id: todo:检查值范围
 	table_option_jsonstr:
 		{
-			min_deposit_fee = 100, 	-- 押金要求
-			min_bet_amount = 10,	-- 底注
-			inc_bet_amount = 10,	-- 单次加注限制
+			"min_deposit_fee":100, 	-- 押金要求
+			"min_bet_amount":10,	-- 底注
+			"inc_bet_amount":10,	-- 单次加注限制
 			-- 加注上限?
 		}
 	players_jsonstr:
@@ -199,8 +192,16 @@ local function get_player_index(player_name, table_data)
 	return nil
 end
 
--- 洗牌
--- todo:怎么防止玩家直接调用合约接口,而发来错误数据?
+--[[
+	洗牌
+	todo:怎么防止玩家直接调用合约接口,而发来错误数据?
+	encrypted_deck_jsonstr:
+	[
+		Card1_base58,
+		...
+		Card52_base58
+	]
+]]--
 function shuffle_deck(table_id, encrypted_deck_jsonstr)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
@@ -231,7 +232,22 @@ function shuffle_deck(table_id, encrypted_deck_jsonstr)
 	end
 end
 
--- 给每张牌加密
+--[[
+	给每张牌加密
+	todo:怎么防止玩家直接调用合约接口,而发来错误数据?
+	encrypted_deck_jsonstr:
+	[
+		Card1_base58,
+		...
+		Card52_base58
+	]
+	pubkeys_jsonstr:
+	[
+		pub1_base58,
+		...
+		pub52_base58
+	]
+]]--
 function encrypt_cards(table_id, encrypted_deck_jsonstr, pubkeys_jsonstr)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
@@ -579,6 +595,45 @@ end
 function testcommand(cmd, arg)
 	print("testcommand cmd="..cmd.." arg="..arg)
 	if(cmd == "test")then
+		--add_table_creator("fish")
+		--pay_deposit(100)
+		local table_id = 1
+		--table_create(table_id, "{\"min_deposit_fee\":100,\"min_bet_amount\":10,\"inc_bet_amount\":10}", "[\"playerA\",\"playerB\",\"playerC\"]")
+		--table_join(table_id)
+		--[[
+		local encrypted_deck_jsonstr = "["
+		for i=1,52 do
+			encrypted_deck_jsonstr = encrypted_deck_jsonstr.."\"card"..i.."_base58_"..contract.get_caller().."\""
+			if(i < 52)then
+				encrypted_deck_jsonstr = encrypted_deck_jsonstr..","
+			end
+		end
+		encrypted_deck_jsonstr = encrypted_deck_jsonstr.."]"
+		shuffle_deck(table_id, encrypted_deck_jsonstr)]]--
+		
+		--[[
+		local encrypted_deck_jsonstr = "["
+		local pubkeys_jsonstr = "["
+		for i=1,52 do
+			encrypted_deck_jsonstr = encrypted_deck_jsonstr.."\"enccard"..i.."_base58_"..contract.get_caller().."\""
+			pubkeys_jsonstr = pubkeys_jsonstr.."\"pub"..i.."_base58_"..contract.get_caller().."\""
+			if(i < 52)then
+				encrypted_deck_jsonstr = encrypted_deck_jsonstr..","
+				pubkeys_jsonstr = pubkeys_jsonstr..","
+			end
+		end
+		encrypted_deck_jsonstr = encrypted_deck_jsonstr.."]"
+		pubkeys_jsonstr = pubkeys_jsonstr.."]"
+		encrypt_cards(table_id, encrypted_deck_jsonstr, pubkeys_jsonstr)]]--
+		
+		--deal(table_id)
+		
+		local prikeys_jsonstr = "["
+		prikeys_jsonstr = prikeys_jsonstr.."[],"
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_BA\",\"prikey2_BA\",\"prikey3_BA\"],"
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_CA\",\"prikey2_CA\",\"prikey3_CA\"]"
+		prikeys_jsonstr = prikeys_jsonstr.."]"
+		set_faceup(table_id, 1, prikeys_jsonstr)
 	end
 end
 
