@@ -18,7 +18,6 @@ function on_deploy()
 	all_data.finish_table_count = 0
 	all_data.unfinish_table_count = 0
 	all_data.is_active = false
-	all_data.deposit_map = {}
 	all_data.tables = {}
 	all_data.table_creators = {}
 	--all_data.players_in_table = {} K=player V=table_id
@@ -50,39 +49,26 @@ function remove_table_creator(table_creator)
 	contract.emit("remove_table_creator", table_creator )
 end
 
--- 参与匹配
-function pay_deposit(deposit_fee)
-	-- todo:检查deposit_fee的值范围
-	--deposit_fee = math.floor(deposit_fee)
-	if(deposit_fee < 1)then
-		error("error deposit_fee value")
+-- 玩家数据
+local function get_user_data(user_name)
+	local user_data = contract.get_user_data(user_name)
+	if(user_data.balance == nil )then
+		user_data.balance = 0
+		user_data.table_id = 0
 	end
-	-- deposit_map 押金表
-	local all_data = contract.get_data()
-	local old_deposit_fee = all_data.deposit_map[contract.get_caller()]
-	local pay_value = 0
-	local back_value = 0
-	if(old_deposit_fee == nil)then
-		pay_value = deposit_fee
-		old_deposit_fee = 0
-	else
-		if(deposit_fee == old_deposit_fee)then
-			error("error deposit_fee value")
-		elseif(deposit_fee > old_deposit_fee)then
-			pay_value = deposit_fee - old_deposit_fee
-		else
-			-- todo:是否在游戏中,游戏中无法减小押金
-			back_value = old_deposit_fee - deposit_fee
-		end
+	return user_data
+end
+
+-- 充值
+function recharge(amount)
+	-- todo:检查amount的值范围
+	if(amount < 1)then
+		error("error amount value")
 	end
-	if(pay_value > 0)then
-		contract.transfer(contract.get_caller(), contract.get_name(), pay_value)
-	end
-	if(back_value > 0)then
-		contract.transfer(contract.get_name(), contract.get_caller(), back_value)
-	end
-	all_data.deposit_map[contract.get_caller()] = deposit_fee
-	contract.emit("pay_deposit", contract.get_caller(), deposit_fee, old_deposit_fee)
+	local user_data = get_user_data(contract.get_caller())
+	contract.transfer(contract.get_caller(), contract.get_name(), amount)
+	user_data.balance = user_data.balance + amount
+	contract.emit("recharge", contract.get_caller(), amount, user_data.balance)
 end
 
 --[[
@@ -91,6 +77,7 @@ end
 	table_option_jsonstr:
 		{
 			"min_deposit_fee":100, 	-- 押金要求
+			"min_balance":10000,	-- 余额要求
 			"min_bet_amount":10,	-- 底注
 			"inc_bet_amount":10,	-- 单次加注限制
 			-- 加注上限?
@@ -103,7 +90,6 @@ end
 		]
 ]]--
 function table_create(table_id, table_option_jsonstr, players_jsonstr)
-	--table_id = math.floor(table_id)
 	if(table_id < 1)then
 		error("error table_id value")
 	end
@@ -114,11 +100,9 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	local table_option = contract.jsonstr_to_table(table_option_jsonstr)
 	local players = contract.jsonstr_to_table(players_jsonstr)
 	for i,player_name in ipairs(players) do
-		if(all_data.deposit_map[player_name] == nil)then
-			error("player not in deposit_map")
-		end
-		if(all_data.deposit_map[player_name] < table_option.min_deposit_fee)then
-			error("player not have enougn deposit_fee")
+		local user_data = get_user_data(player_name)
+		if(user_data.balance < table_option.min_deposit_fee + table_option.min_balance)then
+			error("player not have enougn balance")
 		end
 		for j=i+1,#players do
 			if(players[i] == players[j])then
@@ -143,7 +127,6 @@ end
 
 -- 玩家加入牌桌
 function table_join(table_id)
-	--table_id = math.floor(table_id)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
@@ -314,7 +297,7 @@ end
   玩家看自己的手牌
   prikeys_jsonstr:其他玩家的对该玩家手牌的私钥
   [
-	{}, -- 假设A看牌,自己的私钥不公开
+	[], -- 假设A看牌,自己的私钥不公开
 	[prikey1_BA,prikey2_BA,prikey3_BA],
 	[prikey1_CA,prikey2_CA,prikey3_CA],
 	[...],
@@ -389,20 +372,27 @@ function bet_continue(table_id, bet_amount)
 	end
 	local min_bet_amount = table_data.current_bet_amount
 	if(table_data.players[player_index].is_facedown)then
-		min_bet_amount = min_bet_amount // 2 -- 安排只需要一半的注
+		min_bet_amount = min_bet_amount // 2 -- 暗牌只需要一半的注
 	end
 	if(bet_amount < min_bet_amount)then
 		error("error bet_amount value")
 	end
 	-- todo:检查上限
-	contract.transfer(contract.get_caller(), contract.get_name(), bet_amount)
+	local user_data = get_user_data(contract.get_caller())
+	if(user_data.balance < bet_amount)then
+		error("not enough balance")
+	end
+	user_data.balance = user_data.balance - bet_amount
 	table_data.current_bet_amount = (table_data.players[player_index].is_facedown and bet_amount*2 or bet_amount)
 	table_data.bet_pool = table_data.bet_pool + bet_amount
 	local next_player_index = 0
 	for i=1,#table_data.players-1 do
-		local check_index = (player_index+i) % #table_data.players
+		local check_index = (player_index+i) % (#table_data.players)
+		if(check_index == 0)then
+			check_index = #table_data.players
+		end
 		if(not table_data.players[check_index].is_giveup)then
-			next_player_index = i
+			next_player_index = check_index
 			table_data.current_player_index = next_player_index
 			break
 		end
@@ -414,14 +404,14 @@ local function set_winner(all_data, table_data, table_id, winner_index)
 	table_data.winner_index = winner_index
 	table_data.play_state = EState.End
 	-- 
-	contract.transfer(contract.get_name(), table_data.players[winner_index], table_data.bet_pool)
+	contract.transfer(contract.get_name(), table_data.players[winner_index].player_name, table_data.bet_pool)
 end
 
 --[[
 	弃牌
 	prikeys_jsonstr:该玩家掌握的其他玩家的手牌的私钥
 	[
-		{}, -- 假设A弃牌,自己的私钥不公开
+		[], -- 假设A弃牌,自己的私钥不公开
 		[prikey1_AB,prikey2_AB,prikey3_AB],
 		[prikey1_AC,prikey2_AC,prikey3_AC],
 		[...],
@@ -475,7 +465,7 @@ function bet_giveup(table_id,prikeys_jsonstr)
 			check_index = #table_data.players
 		end
 		if(not table_data.players[check_index].is_giveup)then
-			next_player_index = i
+			next_player_index = check_index
 			table_data.current_player_index = next_player_index
 			break
 		end
@@ -596,9 +586,9 @@ function testcommand(cmd, arg)
 	print("testcommand cmd="..cmd.." arg="..arg)
 	if(cmd == "test")then
 		--add_table_creator("fish")
-		--pay_deposit(100)
+		--recharge(100000)
 		local table_id = 1
-		--table_create(table_id, "{\"min_deposit_fee\":100,\"min_bet_amount\":10,\"inc_bet_amount\":10}", "[\"playerA\",\"playerB\",\"playerC\"]")
+		--table_create(table_id, "{\"min_deposit_fee\":100,\"min_balance\":10000,\"min_bet_amount\":10,\"inc_bet_amount\":10}", "[\"playerA\",\"playerB\",\"playerC\"]")
 		--table_join(table_id)
 		--[[
 		local encrypted_deck_jsonstr = "["
@@ -628,12 +618,34 @@ function testcommand(cmd, arg)
 		
 		--deal(table_id)
 		
+		--[[
 		local prikeys_jsonstr = "["
 		prikeys_jsonstr = prikeys_jsonstr.."[],"
 		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_BA\",\"prikey2_BA\",\"prikey3_BA\"],"
 		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_CA\",\"prikey2_CA\",\"prikey3_CA\"]"
 		prikeys_jsonstr = prikeys_jsonstr.."]"
-		set_faceup(table_id, 1, prikeys_jsonstr)
+		set_faceup(table_id, 1, prikeys_jsonstr)]]--
+		
+		--bet_continue(table_id, 10)
+		
+		--[[
+		local prikeys_jsonstr = "["
+		prikeys_jsonstr = prikeys_jsonstr.."[],"
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_AB\",\"prikey2_AB\",\"prikey3_AB\"],"
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_AC\",\"prikey2_AC\",\"prikey3_AC\"]"
+		prikeys_jsonstr = prikeys_jsonstr.."]"
+		bet_giveup(table_id,prikeys_jsonstr)]]--
+		
+		--bet_open(table_id)
+		
+		local prikeys_jsonstr = "["
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_BB\",\"prikey2_BB\",\"prikey3_BB\"],"
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_BC\",\"prikey2_BC\",\"prikey3_BC\"],"
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_CC\",\"prikey2_CC\",\"prikey3_CC\"],"
+		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_CB\",\"prikey2_CB\",\"prikey3_CB\"]"
+		prikeys_jsonstr = prikeys_jsonstr.."]"
+		set_open_result(table_id, 2, 3, 2, prikeys_jsonstr)
+		
 	end
 end
 
