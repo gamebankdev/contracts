@@ -8,7 +8,11 @@
 	"args": ["string"]
 }, {
 	"type": "function",
-	"name": "pay_deposit",
+	"name": "recharge",
+	"args": ["uint64"]
+}, {
+	"type": "function",
+	"name": "withdraw",
 	"args": ["uint64"]
 }, {
 	"type": "function",
@@ -42,6 +46,10 @@
 	"type": "function",
 	"name": "bet_giveup",
 	"args": ["uint64", "string"]
+}, {
+	"type": "function",
+	"name": "compare_card",
+	"args": ["uint64", "uint64", "uint64", "uint64"]
 }, {
 	"type": "function",
 	"name": "bet_open",

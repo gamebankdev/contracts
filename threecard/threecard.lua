@@ -59,7 +59,7 @@ local function get_user_data(user_name)
 	return user_data
 end
 
--- 充值
+-- 充值兑换成筹码(1:1)
 function recharge(amount)
 	-- todo:检查amount的值范围
 	if(amount < 1)then
@@ -69,6 +69,20 @@ function recharge(amount)
 	contract.transfer(contract.get_caller(), contract.get_name(), amount)
 	user_data.balance = user_data.balance + amount
 	contract.emit("recharge", contract.get_caller(), amount, user_data.balance)
+end
+
+-- 提款:筹码兑换成GB(1:1)
+function withdraw(amount)
+	if(amount < 1)then
+		error("error amount value")
+	end
+	local user_data = get_user_data(contract.get_caller())
+	if(user_data.balance < amount)then
+		error("not enough balance")
+	end
+	user_data.balance = user_data.balance - amount
+	contract.transfer(contract.get_name(), contract.get_caller(), amount)
+	contract.emit("withdraw", contract.get_caller(), amount, user_data.balance)
 end
 
 --[[
@@ -400,11 +414,13 @@ function bet_continue(table_id, bet_amount)
 	contract.emit("bet_continue", contract.get_caller(), table_id, bet_amount )
 end
 
+-- 产生赢家
 local function set_winner(all_data, table_data, table_id, winner_index)
 	table_data.winner_index = winner_index
 	table_data.play_state = EState.End
 	-- 
 	contract.transfer(contract.get_name(), table_data.players[winner_index].player_name, table_data.bet_pool)
+	-- todo: remove the finished table later
 end
 
 --[[
@@ -484,7 +500,65 @@ function bet_giveup(table_id,prikeys_jsonstr)
 	end
 end
 
--- 开牌
+--[[
+	比牌
+	该接口必须由table.creator调用
+]]--
+function compare_card(table_id, player_index, another_index, lose_index)
+	local all_data = contract.get_data()
+	local table_data = all_data.tables[table_id]
+	if(table_data == nil)then
+		error("error table_id")
+	end
+	if(table_data.play_state ~= EState.Playing)then
+		error("error table state")
+	end
+	if(player_index < 1 or player_index > #table_data.players)then
+		error("error player_index")
+	end
+	if(another_index < 1 or another_index > #table_data.players)then
+		error("error another_index")
+	end
+	if(player_index == another_index)then
+		error("error player_index")
+	end
+	if(lose_index ~= player_index and lose_index ~= another_index)then
+		error("error lose_index")
+	end
+	if(table_data.players[player_index].is_giveup)then
+		error("player_index already giveup")
+	end
+	if(table_data.players[another_index].is_giveup)then
+		error("another_index already giveup")
+	end
+	local remain_player_count = 0
+	for i=1,#table_data.players do
+		if(not table_data.players[i].is_giveup)then
+			remain_player_count = remain_player_count + 1
+		end
+	end
+	if(remain_player_count <= 2)then
+		error("only can do when there is more than 2 players remain")
+	end
+	table_data.players[lose_index].is_giveup = true
+	contract.emit("compare_card", contract.get_caller(), table_id, player_index, another_index, lose_index )
+	
+	-- 找下一个还没弃牌的玩家 1234 2 345%4 3 0(4) 1 
+	local next_player_index = 0
+	for i=1,#table_data.players-1 do
+		local check_index = (player_index+i) % #table_data.players
+		if(check_index == 0)then
+			check_index = #table_data.players
+		end
+		if(not table_data.players[check_index].is_giveup)then
+			next_player_index = check_index
+			table_data.current_player_index = next_player_index
+			break
+		end
+	end
+end
+
+-- 开牌:只剩2名玩家的时候才能开牌
 function bet_open(table_id)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
