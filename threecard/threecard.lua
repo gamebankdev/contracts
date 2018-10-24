@@ -109,7 +109,11 @@ end
 		]
 ]]--
 function table_create(table_id, table_option_jsonstr, players_jsonstr)
+	--[[
 	if(table_id < 1)then
+		error("error table_id value")
+	end]]--
+	if(string.len(table_id) < 1)then
 		error("error table_id value")
 	end
 	local all_data = contract.get_data()
@@ -669,8 +673,8 @@ function testcommand(cmd, arg)
 	if(cmd == "test")then
 		--add_table_creator("fish")
 		--recharge(100000)
-		local table_id = 1
-		--table_create(table_id, "{\"min_deposit_fee\":100,\"min_balance\":10000,\"min_bet_amount\":10,\"inc_bet_amount\":10}", "[\"playerA\",\"playerB\",\"playerC\"]")
+		local table_id = "1"
+		table_create(table_id, "{\"min_deposit_fee\":100,\"min_balance\":10000,\"min_bet_amount\":10,\"inc_bet_amount\":10}", "[\"playerA\",\"playerB\",\"playerC\"]")
 		--table_join(table_id)
 		--[[
 		local encrypted_deck_jsonstr = "["
@@ -720,13 +724,14 @@ function testcommand(cmd, arg)
 		
 		--bet_open(table_id)
 		
+		--[[
 		local prikeys_jsonstr = "["
 		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_BB\",\"prikey2_BB\",\"prikey3_BB\"],"
 		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_BC\",\"prikey2_BC\",\"prikey3_BC\"],"
 		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_CC\",\"prikey2_CC\",\"prikey3_CC\"],"
 		prikeys_jsonstr = prikeys_jsonstr.."[\"prikey1_CB\",\"prikey2_CB\",\"prikey3_CB\"]"
 		prikeys_jsonstr = prikeys_jsonstr.."]"
-		set_open_result(table_id, 2, 3, 2, prikeys_jsonstr)
+		set_open_result(table_id, 2, 3, 2, prikeys_jsonstr)]]--
 		
 	end
 end
