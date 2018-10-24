@@ -543,17 +543,20 @@ function compare_card(table_id, player_index, another_index, lose_index)
 	table_data.players[lose_index].is_giveup = true
 	contract.emit("compare_card", contract.get_caller(), table_id, player_index, another_index, lose_index )
 	
-	-- 找下一个还没弃牌的玩家 1234 2 345%4 3 0(4) 1 
-	local next_player_index = 0
-	for i=1,#table_data.players-1 do
-		local check_index = (player_index+i) % #table_data.players
-		if(check_index == 0)then
-			check_index = #table_data.players
-		end
-		if(not table_data.players[check_index].is_giveup)then
-			next_player_index = check_index
-			table_data.current_player_index = next_player_index
-			break
+	-- 比牌玩家输了,自动切到下一个玩家
+	if(player_index == lose_index)then
+		-- 找下一个还没弃牌的玩家 1234 2 345%4 3 0(4) 1 
+		local next_player_index = 0
+		for i=1,#table_data.players-1 do
+			local check_index = (player_index+i) % #table_data.players
+			if(check_index == 0)then
+				check_index = #table_data.players
+			end
+			if(not table_data.players[check_index].is_giveup)then
+				next_player_index = check_index
+				table_data.current_player_index = next_player_index
+				break
+			end
 		end
 	end
 end
