@@ -12,12 +12,16 @@
 	"args": ["uint64"]
 }, {
 	"type": "function",
+	"name": "get_balance",
+	"args": ["string"]
+}, {
+	"type": "function",
 	"name": "withdraw",
 	"args": ["uint64"]
 }, {
 	"type": "function",
 	"name": "table_create",
-	"args": ["uint64", "string", "string"]
+	"args": ["uint64", "object", "array"]
 }, {
 	"type": "function",
 	"name": "table_join",
@@ -25,11 +29,11 @@
 }, {
 	"type": "function",
 	"name": "shuffle_deck",
-	"args": ["uint64", "string"]
+	"args": ["uint64", "array"]
 }, {
 	"type": "function",
 	"name": "encrypt_cards",
-	"args": ["uint64", "string", "string"]
+	"args": ["uint64", "array", "array"]
 }, {
 	"type": "function",
 	"name": "deal",
@@ -37,7 +41,7 @@
 }, {
 	"type": "function",
 	"name": "set_faceup",
-	"args": ["uint64", "uint64", "string"]
+	"args": ["uint64", "uint64", "array"]
 }, {
 	"type": "function",
 	"name": "bet_continue",
@@ -45,7 +49,7 @@
 }, {
 	"type": "function",
 	"name": "bet_giveup",
-	"args": ["uint64", "string"]
+	"args": ["uint64", "array"]
 }, {
 	"type": "function",
 	"name": "compare_card",
@@ -57,7 +61,7 @@
 }, {
 	"type": "function",
 	"name": "set_open_result",
-	"args": ["uint64", "uint64", "uint64", "uint64", "string"]
+	"args": ["uint64", "uint64", "uint64", "uint64", "array"]
 }, {
 	"type": "function",
 	"name": "testcommand",

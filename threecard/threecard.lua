@@ -71,6 +71,11 @@ function recharge(amount)
 	contract.emit("recharge", contract.get_caller(), amount, user_data.balance)
 end
 
+function get_balance(user_name)
+	local user_data = get_user_data(user_name)
+	return tostring(user_data.balance)
+end
+
 -- 提款:筹码兑换成GB(1:1)
 function withdraw(amount)
 	if(amount < 1)then
