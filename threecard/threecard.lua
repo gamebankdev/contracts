@@ -22,7 +22,7 @@ function on_deploy()
 	all_data.table_creators = {}
 	--all_data.players_in_table = {} K=player V=table_id
 	print("on_deploy")
-	contract.emit("deploy", chain.head_block_num() )
+	contract.emit("deploy", chain.head_block_num(), contract.get_caller() )
 end
 
 function add_table_creator(table_creator)
@@ -68,7 +68,8 @@ function recharge(amount)
 	local user_data = get_user_data(contract.get_caller())
 	contract.transfer(contract.get_caller(), contract.get_name(), amount)
 	user_data.balance = user_data.balance + amount
-	contract.emit("recharge", contract.get_caller(), amount, user_data.balance)
+	contract.emit("recharge", {contract.get_caller(), amount, user_data.balance})
+	return tostring(user_data.balance)
 end
 
 function get_balance(user_name)
@@ -87,7 +88,7 @@ function withdraw(amount)
 	end
 	user_data.balance = user_data.balance - amount
 	contract.transfer(contract.get_name(), contract.get_caller(), amount)
-	contract.emit("withdraw", contract.get_caller(), amount, user_data.balance)
+	contract.emit("withdraw", {contract.get_caller(), amount, user_data.balance})
 end
 
 --[[
@@ -145,7 +146,7 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	all_data.created_table_count = all_data.created_table_count + 1
 	-- todo:player增加一个状态值,防止一个player同时参加多个牌桌
 	-- table增加超时设置,防止游戏服务器停止运行,导致player卡在该状态?
-	contract.emit("table_create", contract.get_caller(), table_id, table_option_jsonstr, players_jsonstr) -- jsonstr是否能正确保存???
+	contract.emit("table_create", {contract.get_caller(), table_id, table_option_jsonstr, players_jsonstr} ) -- jsonstr是否能正确保存???
 end
 
 -- 玩家加入牌桌
@@ -162,7 +163,7 @@ function table_join(table_id)
 		if(player_data.player_name == contract.get_caller())then
 			if(not player_data.is_joined)then
 				player_data.is_joined = true
-				contract.emit("table_join", contract.get_caller(), table_id)
+				contract.emit("table_join", {contract.get_caller(), table_id})
 				local is_all_joined = true
 				for j,player_data2 in ipairs(table_data.players) do
 					if(not player_data2.is_joined)then
@@ -231,7 +232,7 @@ function shuffle_deck(table_id, encrypted_deck_jsonstr)
 	-- todo: check encrypted_deck
 	table_data.current_encrypted_deck = encrypted_deck
 	table_data.current_player_index = table_data.current_player_index + 1
-	contract.emit("shuffle_deck", contract.get_caller(), table_id, encrypted_deck_jsonstr)
+	contract.emit("shuffle_deck", {contract.get_caller(), table_id, encrypted_deck_jsonstr})
 	if(table_data.current_player_index > #table_data.players)then
 		table_data.play_state = EState.EncryptCards
 		table_data.current_player_index = 1
@@ -283,7 +284,7 @@ function encrypt_cards(table_id, encrypted_deck_jsonstr, pubkeys_jsonstr)
 	table_data.players[player_index].pubkeys = pubkeys
 	table_data.current_encrypted_deck = encrypted_deck
 	table_data.current_player_index = table_data.current_player_index + 1
-	contract.emit("encrypt_cards", contract.get_caller(), table_id, encrypted_deck_jsonstr, pubkeys_jsonstr)
+	contract.emit("encrypt_cards", {contract.get_caller(), table_id, encrypted_deck_jsonstr, pubkeys_jsonstr})
 	if(table_data.current_player_index > #table_data.players)then
 		table_data.play_state = EState.Deal
 		table_data.current_player_index = 1
@@ -313,7 +314,7 @@ function deal(table_id)
 		end
 	end
 	table_data.play_state = EState.Playing
-	contract.emit("deal", contract.get_caller(), table_id )
+	contract.emit("deal", {contract.get_caller(), table_id} )
 end
 
 --[[
@@ -370,7 +371,7 @@ function set_faceup(table_id, player_index, prikeys_jsonstr)
 		end
 	end
 	table_data.players[player_index].is_facedown = false
-	contract.emit("set_faceup", contract.get_caller(), table_id, player_index, prikeys_jsonstr )
+	contract.emit("set_faceup", {contract.get_caller(), table_id, player_index, prikeys_jsonstr} )
 end
 
 -- 下注
@@ -420,7 +421,7 @@ function bet_continue(table_id, bet_amount)
 			break
 		end
 	end
-	contract.emit("bet_continue", contract.get_caller(), table_id, bet_amount )
+	contract.emit("bet_continue", {contract.get_caller(), table_id, bet_amount} )
 end
 
 -- 产生赢家
@@ -480,7 +481,7 @@ function bet_giveup(table_id,prikeys_jsonstr)
 			end
 		end
 	end
-	contract.emit("bet_giveup", contract.get_caller(), table_id, prikeys_jsonstr )
+	contract.emit("bet_giveup", {contract.get_caller(), table_id, prikeys_jsonstr} )
 	
 	-- 找下一个还没弃牌的玩家 1234 2 345%4 3 0(4) 1 
 	local next_player_index = 0
@@ -550,7 +551,7 @@ function compare_card(table_id, player_index, another_index, lose_index)
 		error("only can do when there is more than 2 players remain")
 	end
 	table_data.players[lose_index].is_giveup = true
-	contract.emit("compare_card", contract.get_caller(), table_id, player_index, another_index, lose_index )
+	contract.emit("compare_card", {contract.get_caller(), table_id, player_index, another_index, lose_index} )
 	
 	-- 比牌玩家输了,自动切到下一个玩家
 	if(player_index == lose_index)then
@@ -604,7 +605,7 @@ function bet_open(table_id)
 		bet_amount = bet_amount * 2
 	end
 	contract.transfer(contract.get_caller(), contract.get_name(), bet_amount)
-	contract.emit("bet_open", contract.get_caller(), table_id, bet_amount )
+	contract.emit("bet_open", {contract.get_caller(), table_id, bet_amount} )
 	table_data.bet_pool = table_data.bet_pool + bet_amount
 	table_data.play_state = EState.WaitResult
 end
@@ -663,7 +664,7 @@ function set_open_result(table_id, open_index, another_index, winner_index, prik
 			table_data.players[hand_index].hand_cards[j].prikeys[from_index] = prikey3[j]
 		end
 	end
-	contract.emit("set_open_result", contract.get_caller(), table_id, open_index, another_index, winner_index, prikeys_jsonstr )
+	contract.emit("set_open_result", {contract.get_caller(), table_id, open_index, another_index, winner_index, prikeys_jsonstr} )
 	set_winner(all_data, table_data, table_id, winner_index)
 end
 

@@ -1,0 +1,45 @@
+[{
+	"type": "function",
+	"name": "add_table_creator",
+	"args": ["string"]
+}, {
+	"type": "function",
+	"name": "remove_table_creator",
+	"args": ["string"]
+}, {
+	"type": "function",
+	"name": "recharge",
+	"args": ["uint64"]
+}, {
+	"type": "function",
+	"name": "get_balance",
+	"args": ["string"]
+}, {
+	"type": "function",
+	"name": "withdraw",
+	"args": ["uint64"]
+}, {
+	"type": "function",
+	"name": "table_create",
+	"args": ["string", "object", "array"]
+}, {
+	"type": "function",
+	"name": "table_join",
+	"args": ["string"]
+}, {
+	"type": "function",
+	"name": "shuffer_cards",
+	"args": ["string", "array", "array"]
+}, {
+	"type": "function",
+	"name": "pay",
+	"args": ["string","uint64","uint64"]
+}, {
+	"type": "function",
+	"name": "game_result",
+	"args": ["string", "array", "uint64"]
+}, {
+	"type": "function",
+	"name": "testcommand",
+	"args": ["string", "string"]
+}]
