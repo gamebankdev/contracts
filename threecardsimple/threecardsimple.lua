@@ -5,12 +5,12 @@ function on_deploy()
 	all_data.created_table_count = 0
 	all_data.finish_table_count = 0
 	all_data.unfinish_table_count = 0
-	all_data.is_active = false
-	all_data.tables = {}
+	all_data.last_table_id = 0
+	all_data.is_active = true
+	all_data.tables = {} -- 正在进行中的牌桌
 	all_data.table_creators = {}
-	--all_data.players_in_table = {} K=player V=table_id
 	print("on_deploy")
-	contract.emit("deploy", chain.head_block_num(), contract.get_caller() )
+	contract.emit("deploy", {chain.head_block_num(), contract.get_caller()} )
 end
 
 function add_table_creator(table_creator)
@@ -22,7 +22,7 @@ function add_table_creator(table_creator)
 	end
 	local all_data = contract.get_data()
 	all_data.table_creators[table_creator] = 1
-	contract.emit("add_table_creator", table_creator )
+	contract.emit("add_table_creator", {table_creator} )
 end
 
 function remove_table_creator(table_creator)
@@ -34,7 +34,7 @@ function remove_table_creator(table_creator)
 	end
 	local all_data = contract.get_data()
 	all_data.table_creators[table_creator] = nil
-	contract.emit("remove_table_creator", table_creator )
+	contract.emit("remove_table_creator", {table_creator} )
 end
 
 -- 玩家数据
@@ -60,6 +60,7 @@ function recharge(amount)
 	return tostring(user_data.balance)
 end
 
+-- 获取用户筹码余额
 function get_balance(user_name)
 	local user_data = get_user_data(user_name)
 	return tostring(user_data.balance)
@@ -77,35 +78,38 @@ function withdraw(amount)
 	user_data.balance = user_data.balance - amount
 	contract.transfer(contract.get_name(), contract.get_caller(), amount)
 	contract.emit("withdraw", {contract.get_caller(), amount, user_data.balance})
+	return tostring(user_data.balance)
 end
 
 --[[
 	创建桌子
 	table_id: todo:检查值范围
 	table_option_jsonstr:
-		{
-			"min_deposit_fee":100, 	-- 押金要求
-			"min_balance":10000,	-- 余额要求
-			"min_bet_amount":10,	-- 底注
-			"inc_bet_amount":10,	-- 单次加注限制
-			-- 加注上限?
-		}
+	{
+		"min_deposit_fee":100, 	-- 押金要求
+		"min_balance":10000,	-- 余额要求
+		"min_bet_amount":10,	-- 底注
+		"inc_bet_amount":10,	-- 单次加注限制
+		-- 加注上限?
+	}
 	players_jsonstr:
-		[
-			player_nameA,
-			player_nameB,
-			player_nameC
-		]
+	[
+		player_nameA,
+		player_nameB,
+		player_nameC
+	]
 ]]--
 function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	--[[
 	if(table_id < 1)then
 		error("error table_id value")
 	end]]--
-	if(string.len(table_id) < 1)then
+	local all_data = contract.get_data()
+	local int_table_id = math.tointeger(table_id)
+	if(int_table_id <= all_data.last_table_id)then
 		error("error table_id value")
 	end
-	local all_data = contract.get_data()
+	
 	if(all_data.table_creators[contract.get_caller()] == nil)then
 		error("not have right to create table")
 	end
@@ -131,6 +135,7 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 		table.insert(new_table.players, {player_name=player_name,is_joined=false})
 	end
 	all_data.tables[table_id] = new_table
+	all_data.last_table_id = int_table_id
 	all_data.created_table_count = all_data.created_table_count + 1
 	-- todo:player增加一个状态值,防止一个player同时参加多个牌桌
 	-- table增加超时设置,防止游戏服务器停止运行,导致player卡在该状态?
@@ -154,15 +159,6 @@ function table_join(table_id)
 		end
 	end
 	error("not find player in this table")
-end
-
-local function is_in_table(player_name, table_data)
-	for i,player_data in ipairs(table_data.players) do
-		if(player_data.player_name == player_name)then
-			return true
-		end
-	end
-	return false
 end
 
 local function get_player_index(player_name, table_data)
@@ -196,8 +192,8 @@ function shuffer_cards(table_id, encrypted_deck_jsonstr, pubkeys_jsonstr)
 	if(table_data == nil)then
 		error("error table_id")
 	end
-	if(all_data.table_creators[contract.get_caller()] == nil)then
-		error("not have right to shuffer_cards")
+	if(table_data.creator ~= contract.get_caller())then
+		error("only table creator can do this method")
 	end
 	local encrypted_deck = contract.jsonstr_to_table(encrypted_deck_jsonstr)
 	if(#encrypted_deck ~= 52)then
@@ -215,7 +211,10 @@ function shuffer_cards(table_id, encrypted_deck_jsonstr, pubkeys_jsonstr)
 	contract.emit("shuffer_cards", {contract.get_caller(), table_id, encrypted_deck_jsonstr, pubkeys_jsonstr})
 end
 
--- 扣筹码
+--[[
+	扣筹码
+	reason: 0:底注 1:跟注 2:开牌
+]]--
 function pay(table_id, amount, reason)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
@@ -224,7 +223,7 @@ function pay(table_id, amount, reason)
 	end
 	local player_index = get_player_index(contract.get_caller(), table_data)
 	if( player_index == nil )then
-		error("error table_id")
+		error("you are not in this table")
 	end
 	-- todo:检查上限
 	local user_data = get_user_data(contract.get_caller())
@@ -241,21 +240,99 @@ end
   游戏过程数据
   ops_jsonstr:
   [
-	{"type":optype,"index":index,"args":"...","time":time}
+	{"type":optype,"args":"...","time":time}
 	...
   ]
   该接口必须由table.creator调用
+  准备 num:底注金额
+	type:"ready",name:user_name,args:{num:num}
+  发初始牌
+	type:"draw",name:user_name,args:{[cardindex1,cardindex2,cardindex3]}
+  看自己手牌
+	type:"watch",name:user_name,args:{
+	}
+  跟注 num:跟注金额
+	type:"stake",name:user_name,args:{num:num}
+  弃牌
+	type:"pass",name:user_name,args:{}
+  开牌
+	type:"open",name:user_name,args:{
+		target:whoseCard,
+		winner:whoWin,
+		cost:pay
+	}
+  游戏结果
+	type:"result",name:winner_name,args:
+	{
+		winner:winner_name,
+		money:win_money,
+		cards:
+		[
+			{
+				name:whoseCard,
+				cards:
+				[
+					{
+						index:card_index,
+						keys:
+						[
+							{
+								name:key_owner,
+								key:prikey
+							}
+						]
+					},
+					...other two cards...
+				]
+			},
+			...other users...
+		]
+	}
 ]]--
-function game_result(table_id, ops_jsonstr, winner_index )
+function game_result(table_id, ops_jsonstr, winner_name )
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
 		error("error table_id")
 	end
+	if(table_data.creator ~= contract.get_caller())then
+		error("only table creator can do this method")
+	end
 	local ops = contract.jsonstr_to_table(ops_jsonstr)
-	contract.transfer(contract.get_name(), table_data.players[winner_index].player_name, table_data.bet_pool)
+	-- todo:合约收取一定的手续费
+	local winner_index = get_player_index(winner_name, table_data)
+	if(winner_index == nil)then
+		error("error winner_name")
+	end
+	local user_data = get_user_data(winner_name)
+	user_data.balance = user_data.balance + table_data.bet_pool
 	table_data.bet_pool = 0
-	contract.emit("game_result", {contract.get_caller(), table_id, ops_jsonstr, winner_index} )
+	all_data.finish_table_count = all_data.finish_table_count + 1
+	all_data.tables[table_id] = nil
+	contract.emit("game_result", {contract.get_caller(), table_id, ops_jsonstr, winner_name} )
+	return user_data.balance
+end
+
+--[[
+  牌桌非正常结束(玩家掉线或恶意退出)
+  args_jsonstr:
+  [
+  ]
+  reason:
+	玩家人数不齐 退还底注
+	玩家掉线或恶意退出 退还每个玩家押的钱 剩下的钱平分
+	玩家操作超时 退还每个玩家押的钱 剩下的钱平分
+  该接口必须由table.creator调用
+]]--
+function game_abort(table_id, args_jsonstr, reason )
+	local all_data = contract.get_data()
+	local table_data = all_data.tables[table_id]
+	if(table_data == nil)then
+		error("error table_id")
+	end
+	if(table_data.creator ~= contract.get_caller())then
+		error("only table creator can do this method")
+	end
 end
 
 -- only for test
@@ -264,8 +341,8 @@ function testcommand(cmd, arg)
 	if(cmd == "test")then
 		--add_table_creator("fish")
 		--recharge(100000)
-		local table_id = "1"
-		table_create(table_id, "{\"min_deposit_fee\":100,\"min_balance\":10000,\"min_bet_amount\":10,\"inc_bet_amount\":10}", "[\"playerA\",\"playerB\",\"playerC\"]")
+		--local table_id = "1"
+		--table_create(table_id, "{\"min_deposit_fee\":100,\"min_balance\":10000,\"min_bet_amount\":10,\"inc_bet_amount\":10}", "[\"playerA\",\"playerB\",\"playerC\"]")
 		--table_join(table_id)
 		--[[
 		local encrypted_deck_jsonstr = "["
@@ -334,61 +411,7 @@ end
 
 --[[
 游戏流程:
-	A,B,C支付押金,进行匹配pay_deposit
-	匹配成功,进入一桌table_create
-	轮流洗牌,加密牌数据finish_shuffle
-	
-	游戏开始,每人发3张牌(加密数据)
-	A看自己手牌,B,C把A1-3的加密因子发给A
-	B看自己手牌,A,C把B1-3的加密因子发给B
-	C看自己手牌,A,B把C1-3的加密因子发给C
-	
-	Round1:
-	A跟牌,支付跟牌费
-	B弃牌,把自己的除手牌外的所有私钥发给剩下的player A,C
-	C跟牌,支付跟牌费
-	
-	Round2:
-	A跟牌,支付跟牌费
-	C开牌,支付开牌费,C把C1-3的加密因子发给A,A把A1-3的加密因子发给C
-	A,C的手牌都公开了,比较大小,游戏结算
-	table_finish(args)
 	
 合约:
-	A支付押金 pay_deposit(A)
-	B支付押金 pay_deposit(B)
-	C支付押金 pay_deposit(C)
-	
-	creator创建牌桌table_create(table_id,A,B,C),把A,B,C匹配到一桌
-	A加入牌桌 join_table(A,table_id)
-	B加入牌桌 join_table(B,table_id)
-	C加入牌桌 join_table(C,table_id)
-	A洗牌shuffle_deck(deckA)
-	B洗牌shuffle_deck(deckAB)
-	C洗牌shuffle_deck(deckABC)
-	A换因子shuffle_deck(deckABC,pubkeysA)
-	B换因子shuffle_deck(deckABC,pubkeysB)
-	C换因子shuffle_deck(deckABC,pubkeysC)
-	creator给A,B,C各发3张牌A1,A2,A3 B1,B2,B3 C1,C2,C3
-	B把A1,A2,A3的加密因子发给A (A看自己手牌)
-	C把A1,A2,A3的加密因子发给A (A看自己手牌)
-	A把B1,B2,B3的加密因子发给B (B看自己手牌)
-	C把B1,B2,B3的加密因子发给B (B看自己手牌)
-	A把C1,C2,C3的加密因子发给C (C看自己手牌)
-	B把C1,C2,C3的加密因子发给C (C看自己手牌)
-	
-	(Round1)A跟牌,支付跟牌费follow(A)
-	
-	(Round1)B弃牌,把自己的除自己手牌外的私钥公开 give_key_pass(B,prikeysB)
-	
-	(Round1)C跟牌,支付跟牌费follow(C)
-	
-	(Round2)A跟牌,支付跟牌费follow(A)
-	
-	(Round2)C开牌,支付开牌费,把C1,C2,C3的私钥公开 pay_open_cards(C,prikeysC)
-	
-	(Round2)A把A1,A2,A3的私钥公开 open_cards(A,prikeysA)
-	
-	creator可以看到A,C的牌了,比较大小,游戏结算,钱给赢家 table_result(winner,cardsA,cardsC)
 	
 ]]--

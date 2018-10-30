@@ -37,6 +37,10 @@
 }, {
 	"type": "function",
 	"name": "game_result",
+	"args": ["string", "array", "string"]
+}, {
+	"type": "function",
+	"name": "game_abort",
 	"args": ["string", "array", "uint64"]
 }, {
 	"type": "function",
