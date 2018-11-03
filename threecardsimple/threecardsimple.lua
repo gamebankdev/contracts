@@ -118,7 +118,7 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	for i,player_name in ipairs(players) do
 		local user_data = get_user_data(player_name)
 		if(user_data.balance < table_option.min_deposit_fee + table_option.min_balance)then
-			error("player not have enougn balance")
+			error("player not have enougn balance:"..player_name.." "..user_data.balance.." "..table_option.min_deposit_fee.." "..table_option.min_balance)
 		end
 		for j=i+1,#players do
 			if(players[i] == players[j])then
@@ -139,6 +139,7 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	all_data.created_table_count = all_data.created_table_count + 1
 	-- todo:player增加一个状态值,防止一个player同时参加多个牌桌
 	-- table增加超时设置,防止游戏服务器停止运行,导致player卡在该状态?
+	-- todo: players分成多列写日志,便于浏览器通过username查找对战记录
 	contract.emit("table_create", {contract.get_caller(), table_id, table_option_jsonstr, players_jsonstr} ) -- jsonstr是否能正确保存???
 end
 
@@ -298,7 +299,7 @@ function game_result(table_id, ops_jsonstr, winner_name )
 	if(table_data.creator ~= contract.get_caller())then
 		error("only table creator can do this method")
 	end
-	local ops = contract.jsonstr_to_table(ops_jsonstr)
+	--local ops = contract.jsonstr_to_table(ops_jsonstr)
 	-- todo:合约收取一定的手续费
 	local winner_index = get_player_index(winner_name, table_data)
 	if(winner_index == nil)then
