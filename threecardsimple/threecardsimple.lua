@@ -51,7 +51,7 @@ end
 function recharge(amount)
 	-- todo:检查amount的值范围
 	if(amount < 1)then
-		error("error amount value")
+		error("error amount value:"..amount)
 	end
 	local user_data = get_user_data(contract.get_caller())
 	contract.transfer(contract.get_caller(), contract.get_name(), amount)
@@ -69,11 +69,11 @@ end
 -- 提款:筹码兑换成GB(1:1)
 function withdraw(amount)
 	if(amount < 1)then
-		error("error amount value")
+		error("error amount value:"..amount)
 	end
 	local user_data = get_user_data(contract.get_caller())
 	if(user_data.balance < amount)then
-		error("not enough balance")
+		error("not enough balance:"..contract.get_caller().." balance:"..user_data.balance.." amount:"..amount)
 	end
 	user_data.balance = user_data.balance - amount
 	contract.transfer(contract.get_name(), contract.get_caller(), amount)
@@ -107,7 +107,7 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	local all_data = contract.get_data()
 	local int_table_id = math.tointeger(table_id)
 	if(int_table_id <= all_data.last_table_id)then
-		error("error table_id value")
+		error("error table_id value:"..table_id)
 	end
 	
 	if(all_data.table_creators[contract.get_caller()] == nil)then
@@ -127,7 +127,7 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 		end
 	end
 	if(all_data.tables[table_id] ~= nil)then
-		error("duplicate table_id")
+		error("duplicate table_id:"..table_id)
 	end
 	local new_table = { table_id = table_id, table_option = table_option, creator = contract.get_caller(), create_time = chain.head_block_num(),
 						players = {}, shuffle_decks = {}, bet_pool=0 }
@@ -140,7 +140,7 @@ function table_create(table_id, table_option_jsonstr, players_jsonstr)
 	-- todo:player增加一个状态值,防止一个player同时参加多个牌桌
 	-- table增加超时设置,防止游戏服务器停止运行,导致player卡在该状态?
 	-- todo: players分成多列写日志,便于浏览器通过username查找对战记录
-	contract.emit("table_create", {contract.get_caller(), table_id, table_option_jsonstr, players_jsonstr} ) -- jsonstr是否能正确保存???
+	contract.emit("table_create", {contract.get_caller(), table_id, table_option, players} )
 end
 
 -- 玩家加入牌桌
@@ -148,7 +148,7 @@ function table_join(table_id)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
-		error("error table_id")
+		error("error table_id:"..table_id)
 	end
 	for i,player_data in ipairs(table_data.players) do
 		if(player_data.player_name == contract.get_caller())then
@@ -159,7 +159,7 @@ function table_join(table_id)
 			return
 		end
 	end
-	error("not find player in this table")
+	error("not find player in this table:"..table_id.." "..contract.get_caller())
 end
 
 local function get_player_index(player_name, table_data)
@@ -191,25 +191,25 @@ function shuffer_cards(table_id, encrypted_deck_jsonstr, pubkeys_jsonstr)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
-		error("error table_id")
+		error("error table_id:"..table_id)
 	end
 	if(table_data.creator ~= contract.get_caller())then
 		error("only table creator can do this method")
 	end
 	local encrypted_deck = contract.jsonstr_to_table(encrypted_deck_jsonstr)
 	if(#encrypted_deck ~= 52)then
-		error("error encrypted_deck_jsonstr")
+		error("error encrypted_deck_jsonstr:"..#encrypted_deck)
 	end
 	local player_pubkeys = contract.jsonstr_to_table(pubkeys_jsonstr)
 	if(#player_pubkeys ~= #table_data.players)then
-		error("error player_num")
+		error("error player_num:"..#player_pubkeys)
 	end
 	for i,pubkeys in ipairs(player_pubkeys) do
 		if(#pubkeys ~= 52)then
-			error("error pubkeys")
+			error("error pubkeys:"..#pubkeys)
 		end
 	end
-	contract.emit("shuffer_cards", {contract.get_caller(), table_id, encrypted_deck_jsonstr, pubkeys_jsonstr})
+	contract.emit("shuffer_cards", {contract.get_caller(), table_id, encrypted_deck, player_pubkeys})
 end
 
 --[[
@@ -220,16 +220,16 @@ function pay(table_id, amount, reason)
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
-		error("error table_id")
+		error("error table_id:"..table_id)
 	end
 	local player_index = get_player_index(contract.get_caller(), table_data)
 	if( player_index == nil )then
-		error("you are not in this table")
+		error("you are not in this table:"..table_id.." "..contract.get_caller())
 	end
 	-- todo:检查上限
 	local user_data = get_user_data(contract.get_caller())
 	if(user_data.balance < amount)then
-		error("not enough balance")
+		error("not enough balance:"..contract.get_caller().." balance:"..user_data.balance.." amount:"..amount)
 	end
 	user_data.balance = user_data.balance - amount
 	table_data.bet_pool = table_data.bet_pool + amount
@@ -294,23 +294,23 @@ function game_result(table_id, ops_jsonstr, winner_name )
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
-		error("error table_id")
+		error("error table_id:"..table_id)
 	end
 	if(table_data.creator ~= contract.get_caller())then
 		error("only table creator can do this method")
 	end
-	--local ops = contract.jsonstr_to_table(ops_jsonstr)
+	local ops = contract.jsonstr_to_table(ops_jsonstr)
 	-- todo:合约收取一定的手续费
 	local winner_index = get_player_index(winner_name, table_data)
 	if(winner_index == nil)then
-		error("error winner_name")
+		error("error winner_name:"..table_id.." winner_name:"..winner_name)
 	end
 	local user_data = get_user_data(winner_name)
 	user_data.balance = user_data.balance + table_data.bet_pool
 	table_data.bet_pool = 0
 	all_data.finish_table_count = all_data.finish_table_count + 1
 	all_data.tables[table_id] = nil
-	contract.emit("game_result", {contract.get_caller(), table_id, ops_jsonstr, winner_name} )
+	contract.emit("game_result", {contract.get_caller(), table_id, ops, winner_name} )
 	return user_data.balance
 end
 
@@ -329,7 +329,7 @@ function game_abort(table_id, args_jsonstr, reason )
 	local all_data = contract.get_data()
 	local table_data = all_data.tables[table_id]
 	if(table_data == nil)then
-		error("error table_id")
+		error("error table_id:"..table_id)
 	end
 	if(table_data.creator ~= contract.get_caller())then
 		error("only table creator can do this method")
